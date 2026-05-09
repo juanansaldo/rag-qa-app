@@ -1,5 +1,4 @@
 python-multipart
-streamlit
 fastapi
 uvicorn[standard]
 python-dotenv
@@ -8,4 +7,3 @@ chromadb
 ollama
 pytest
 pypdf
-httpx

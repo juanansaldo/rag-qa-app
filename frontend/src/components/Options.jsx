@@ -1,4 +1,7 @@
+import { useState } from 'react'
+
 export default function Options({
+  compact = false,
   open,
   onToggle,
   chunkByWords,
@@ -11,13 +14,63 @@ export default function Options({
   onTopKChange,
   model,
   onModelChange,
+  availableModels = [],
+  embeddingModel,
+  onEmbeddingModelChange,
+  availableEmbeddingModels = [],
 }) {
+  const MODEL_INFO = {
+    mistral: {
+      note: 'Balanced quality/speed. Great default for local RAG.',
+    },
+    'llama3.2': {
+      note: 'Fast and lightweight. Good instruction following for short answers.',
+    },
+    'llama3.1': {
+      note: 'Usually stronger reasoning but heavier.',
+    },
+    phi3: {
+      note: 'Very fast, lower-resource option.',
+    },
+    gemma2: {
+      note: 'Strong quality; speed depends on quantization.',
+    },
+  }
+  const EMBEDDING_INFO = {
+    'nomic-embed-text': {
+      note: 'Great default for local RAG. Fast and reliable retrieval quality.',
+    },
+    'mxbai-embed-large': {
+      note: 'Higher retrieval quality, usually slower than nomic.',
+    },
+    'snowflake-arctic-embed': {
+      note: 'Strong semantic matching; good alternative for long academic text.',
+    },
+  }
+
   const maxOverlap = Math.max(0, chunkSize - 1)
+  const triggerText = compact ? (open ? '⚙' : '⚙') : open ? 'Options ▼' : 'Options ▶'
+  const triggerTitle = compact ? 'Options' : undefined
+  const [hoverModel, setHoverModel] = useState('')
+  const [hoverEmbeddingModel, setHoverEmbeddingModel] = useState('')
+  const modelChoices = availableModels.length > 0 ? availableModels : Object.keys(MODEL_INFO)
+  const activeModel = hoverModel || model
+  const activeInfo = MODEL_INFO[activeModel] || { note: '' }
+  const embeddingChoices =
+    availableEmbeddingModels.length > 0 ? availableEmbeddingModels : Object.keys(EMBEDDING_INFO)
+  const activeEmbeddingModel = hoverEmbeddingModel || embeddingModel
+  const activeEmbeddingInfo = EMBEDDING_INFO[activeEmbeddingModel] || { note: '' }
 
   return (
-    <div className="query-options-row">
-      <button type="button" className="options-trigger" onClick={onToggle} aria-expanded={open}>
-        {open ? 'Options ▼' : 'Options ▶'}
+    <div className={`query-options-row ${compact ? 'query-options-row-compact' : ''}`}>
+      <button
+        type="button"
+        className="options-trigger"
+        onClick={onToggle}
+        aria-expanded={open}
+        title={triggerTitle}
+      >
+        {triggerText}
       </button>
       {open && (
         <div className="options-panel">
@@ -76,11 +129,59 @@ export default function Options({
           </div>
           <div>
             <label>LLM model</label>
-            <select value={model} onChange={(e) => onModelChange(e.target.value)}>
-              {['mistral', 'llama3.2', 'llama3.1', 'phi3', 'gemma2'].map((m) => (
-                <option key={m} value={m}>{m}</option>
+            <div
+              className="model-hover-list"
+              role="list"
+              aria-label="Model descriptions"
+              onMouseLeave={() => setHoverModel('')}
+            >
+              {modelChoices.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="listitem"
+                  className={`model-hover-item ${m === model ? 'model-hover-item-active' : ''}`}
+                  onMouseEnter={() => setHoverModel(m)}
+                  onFocus={() => setHoverModel(m)}
+                  onBlur={() => setHoverModel('')}
+                  onClick={() => onModelChange(m)}
+                >
+                  {m}
+                </button>
               ))}
-            </select>
+            </div>
+            <div className="model-hover-info" aria-live="polite">
+              <div className="model-hover-title">{activeModel}</div>
+              <div className="model-hover-note">{activeInfo.note}</div>
+            </div>
+          </div>
+          <div>
+            <label>Embedding model</label>
+            <div
+              className="model-hover-list"
+              role="list"
+              aria-label="Embedding model descriptions"
+              onMouseLeave={() => setHoverEmbeddingModel('')}
+            >
+              {embeddingChoices.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="listitem"
+                  className={`model-hover-item ${m === embeddingModel ? 'model-hover-item-active' : ''}`}
+                  onMouseEnter={() => setHoverEmbeddingModel(m)}
+                  onFocus={() => setHoverEmbeddingModel(m)}
+                  onBlur={() => setHoverEmbeddingModel('')}
+                  onClick={() => onEmbeddingModelChange(m)}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+            <div className="model-hover-info" aria-live="polite">
+              <div className="model-hover-title">{activeEmbeddingModel}</div>
+              <div className="model-hover-note">{activeEmbeddingInfo.note}</div>
+            </div>
           </div>
         </div>
       )}

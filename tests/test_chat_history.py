@@ -1,6 +1,6 @@
 """
 Tests for chat_history feature: turn structure and handling of API response.
-History is stored in Streamlit session_state; these tests assert the data contract
+History is stored in React state; these tests assert the data contract
 the UI expects (question, answer, sources).
 """
 

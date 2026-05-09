@@ -7,19 +7,29 @@ export default function QueryBar({
   onAsk,
   ingestInProgress,
   runIngest,
-  uploadedFiles = [],
+  optionsSlot,
 }) {
   const fileInputRef = useRef(null)
+  const canSubmit = Boolean(question?.trim())
 
   const handleSubmit = (e) => {
     e.preventDefault()
+    if (!canSubmit) return
     onAsk()
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      if (canSubmit) onAsk()
+    }
   }
 
   const handleFileChange = () => {
     const input = fileInputRef.current
     if (!input?.files?.length || !runIngest) return
     runIngest(Array.from(input.files))
+    input.value = ''
   }
 
   const triggerFileInput = () => fileInputRef.current?.click()
@@ -27,25 +37,19 @@ export default function QueryBar({
   return (
     <div className="query-bar">
       <div className="query-main">
-        {uploadedFiles.length > 0 && (
-          <div className="query-documents">
-            <div className="query-documents-tabs">
-              {uploadedFiles.map((name, i) => (
-                <span key={i} className="query-doc-tab">{name}</span>
-              ))}
-            </div>
-          </div>
-        )}
         <form onSubmit={handleSubmit}>
           <div className="query-row">
             <textarea
               className="query-input"
-              placeholder="What is in the documents?"
+              placeholder="Ask a question..."
               value={question}
               onChange={(e) => onQuestionChange(e.target.value)}
+              onKeyDown={handleKeyDown}
               aria-label="Ask a question"
+              rows={4}
             />
             <div className="query-actions">
+              {optionsSlot ? <div className="query-options-slot">{optionsSlot}</div> : null}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -64,13 +68,15 @@ export default function QueryBar({
               >
                 +
               </button>
-              <button type="submit" className="btn btn-primary">
+              <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
                 Ask
               </button>
             </div>
           </div>
         </form>
-        <div className={`query-status ${statusMessage === 'Getting answer...' || statusMessage === 'Ingesting in background...' ? 'loading' : ''}`}>
+        <div
+          className={`query-status ${statusMessage === 'Ingesting in background...' ? 'loading' : ''}`}
+        >
           {statusMessage || '\u00A0'}
         </div>
       </div>

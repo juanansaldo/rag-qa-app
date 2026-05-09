@@ -12,6 +12,7 @@ def ingest_file(
     chunk_size: int | None = None,
     chunk_overlap: int | None = None,
     chunk_by_words: bool = False,
+    embedding_model: str | None = None,
 ) -> int:
     """Load one file, chunk, add to store. Returns number of chunks added."""
     pages = load_document(path)
@@ -43,7 +44,13 @@ def ingest_file(
             metadatas.append({"source": source, "page": str(page), "index": str(c["index"])})
     
     if ids:
-        add_batch(ids, texts, metadatas, session_id=session_id)
+        add_batch(
+            ids,
+            texts,
+            metadatas,
+            session_id=session_id,
+            embedding_model=embedding_model,
+        )
     
     return len(ids)
 
@@ -54,6 +61,7 @@ def ingest_directory(
     chunk_size: int | None = None,
     chunk_overlap: int | None = None,
     chunk_by_words: bool = False,
+    embedding_model: str | None = None,
 ) -> int:
     """Load all supported files from directory, chunk, add to store. Returns total chunks added."""
     dir_path = Path(dir_path)
@@ -66,5 +74,6 @@ def ingest_directory(
                 chunk_size=chunk_size,
                 chunk_overlap=chunk_overlap,
                 chunk_by_words=chunk_by_words,
+                embedding_model=embedding_model,
             )
     return total

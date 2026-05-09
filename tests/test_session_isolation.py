@@ -12,6 +12,11 @@ def test_rag_query_passes_session_id_to_search():
     ):
         result = rag_query("question", session_id="session-A")
 
-    mock_search.assert_called_once_with("question", top_k=TOP_K, session_id="session-A")
+    mock_search.assert_called_once_with(
+        "question",
+        top_k=TOP_K,
+        session_id="session-A",
+        embedding_model=None,
+    )
     assert result["answer"] == "Only session A doc"
     assert result["sources"][0]["metadata"]["source"] == "a.txt"

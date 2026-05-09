@@ -5,7 +5,6 @@ __pycache__/
 
 # Local env and state
 .env
-session_state.db
 vector_store/
 data/
 

@@ -1,8 +1,16 @@
-export default function ChatHistory({ turns }) {
-  if (!turns?.length) return null
+export default function ChatHistory({
+  turns,
+  pendingQuestion = '',
+  emptyMessage = 'No messages yet. Upload documents and ask a question.',
+}) {
+  const hasPending = Boolean(pendingQuestion)
+
+  if (!turns?.length && !hasPending) {
+    return <p className="chat-empty">{emptyMessage}</p>
+  }
 
   return (
-    <section className="chat-history" aria-label="Chat">
+    <div className="chat-history" aria-label="Messages">
       {turns.map((turn, i) => (
         <div key={i} className="chat-turn">
           <p className="chat-question">Q: {turn.question}</p>
@@ -20,6 +28,12 @@ export default function ChatHistory({ turns }) {
           )}
         </div>
       ))}
-    </section>
+      {hasPending ? (
+        <div className="chat-turn chat-turn-pending" aria-live="polite">
+          <p className="chat-question">Q: {pendingQuestion}</p>
+          <div className="chat-answer chat-answer-pending">Getting answer...</div>
+        </div>
+      ) : null}
+    </div>
   )
 }

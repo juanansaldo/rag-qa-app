@@ -11,10 +11,11 @@ def rag_query(
     session_id: str = "default", 
     top_k: int | None = None,
     model: str | None = None,
+    embedding_model: str | None = None,
 ) -> dict:
     """Run RAG: retrieve chunks, then generate answer. Returns {"answer": str, "sources": list}."""
     k = top_k if top_k is not None else TOP_K
-    hits = search(question, top_k=k, session_id=session_id)
+    hits = search(question, top_k=k, session_id=session_id, embedding_model=embedding_model)
     if not hits:
         return {"answer": "No relevant documents found. Ingest some documents first.", "sources": []}
     context = "\n\n---\n\n".join(h["document"] for h in hits)
