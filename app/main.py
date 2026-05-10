@@ -5,9 +5,18 @@ from fastapi import FastAPI, UploadFile, File, Header, HTTPException, Form, Quer
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 
+from app.logging_setup import configure_logging
+
+configure_logging()
+
+import logging
+
+from app.http_middleware import RequestLoggingMiddleware
 from app.ingest import ingest_file
 from app.query import rag_query
 from app.store import delete_session, session_has_source, delete_session_source
+
+logger = logging.getLogger("rag.api")
 
 ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md", ".html", ".csv", ".docx"}
 
@@ -55,11 +64,17 @@ app = FastAPI(title="RAG API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "http://localhost:8080",
+        "http://127.0.0.1:8080",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(RequestLoggingMiddleware)
 
 
 @app.get("/health")
@@ -85,7 +100,8 @@ def list_models():
         # Keep stable order but unique names.
         out = list(dict.fromkeys(names))
         return {"models": out}
-    except Exception:
+    except Exception as e:
+        logger.warning("list_models failed: %s", e)
         return {"models": []}
 
 
@@ -122,8 +138,21 @@ async def ingest_upload(
             chunk_by_words=by_words,
             embedding_model=embedding_model,
         )
+        logger.info(
+            "ingest_file session=%s file=%s chunks=%s embedding_model=%s",
+            session_id,
+            file.filename,
+            n,
+            embedding_model,
+        )
         return {"ok": True, "chunks_added": n}
     except Exception as e:
+        logger.exception(
+            "ingest_file failed session=%s file=%s embedding_model=%s",
+            session_id,
+            file.filename,
+            embedding_model,
+        )
         return {"ok": False, "error": str(e)}
 
 
@@ -175,8 +204,21 @@ async def ingest_upload_batch(
             total_chunks += n
             file_results.append({"filename": file.filename, "chunks_added": n})
         except Exception as e:
+            logger.exception(
+                "ingest batch item failed session=%s file=%s embedding_model=%s",
+                session_id,
+                file.filename,
+                embedding_model,
+            )
             file_results.append({"filename": file.filename, "chunks_added": 0, "error": str(e)})
-    
+
+    logger.info(
+        "ingest_files session=%s total_chunks=%s files=%s embedding_model=%s",
+        session_id,
+        total_chunks,
+        len(file_results),
+        embedding_model,
+    )
     return {"ok": True, "total_chunks": total_chunks, "files": file_results}
 
 
@@ -200,8 +242,9 @@ def query(req: QueryRequest, x_session_id: str | None = Header(default=None, ali
             model=req.model,
             embedding_model=req.embedding_model,
         )
-        
+
     except Exception as e:
+        logger.exception("query failed session=%s", session_id)
         return {"answer": "", "sources": [], "error": str(e)}
 
 
@@ -210,6 +253,7 @@ def clear_session(x_session_id: str | None = Header(default=None, alias="X-Sessi
     """Remove all embedded chunks for this session/workspace from the vector store."""
     session_id = _require_session_id(x_session_id)
     removed = delete_session(session_id)
+    logger.info("delete_session session=%s deleted_chunks=%s", session_id, removed)
     return {"ok": True, "deleted_chunks": removed}
 
 
@@ -221,6 +265,12 @@ def delete_document_route(
     """Remove all chunks for one document from this session/workspace."""
     session_id = _require_session_id(x_session_id)
     removed = delete_session_source(session_id=session_id, source=name)
+    logger.info(
+        "delete_document session=%s name=%s deleted_chunks=%s",
+        session_id,
+        name,
+        removed,
+    )
     return {"ok": True, "deleted_chunks": removed, "name": name}
 
 

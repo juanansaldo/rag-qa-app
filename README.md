@@ -1,145 +1,82 @@
 # RAG Q&A
 
-Local retrieval-augmented Q&A for coursework/research documents.
+Ask questions over **your own PDFs and notes** using local models—nothing leaves your machine.
 
-- Upload docs per chat/workspace.
-- Keep context isolated by `X-Session-ID`.
-- Query with selectable LLM + embedding models.
-- Manage docs in-session (preview, open, delete from context).
+You only need **[Docker](https://docs.docker.com/get-docker/)** (with Compose) and **[Ollama](https://ollama.com/)** running on your computer. No Python, Node, or conda required.
 
-## Current behavior (important)
+---
 
-- **No TTL cleanup. No SQLite session DB.**
-- Sessions are logical workspaces driven by `X-Session-ID` + frontend workspace state.
-- Embedding models are isolated in separate Chroma collections to avoid dimension mismatch.
-- UI supports multiple chats, per-chat document lists, rename/delete chats, and pending answer state.
+## 1. Install Ollama (on your PC, not in Docker)
 
-## Stack
-
-- API: FastAPI
-- Vector DB: Chroma (persistent, cosine)
-- Models: Ollama
-  - LLM generation model selectable in UI/API
-  - Embedding model selectable in UI/API
-- Frontend: React + Vite
-
-## Setup
-
-1. Create env and install deps
-
-```bash
-conda create -n rag python=3.11 -y
-conda activate rag
-pip install -r requirements.txt
-```
-
-2. Copy env file
-
-```bash
-cp .env.example .env
-```
-
-3. Pull models you want
+Download and install Ollama, then start it (it usually runs in the background). Pull the models the app will use:
 
 ```bash
 ollama pull mistral
 ollama pull nomic-embed-text
-# optional
-ollama pull mxbai-embed-large
-ollama pull snowflake-arctic-embed
 ```
 
-4. Run backend
+You can add more later (`ollama pull llama3.2`, etc.) and pick them in the app.
+
+---
+
+## 2. Install Docker
+
+- **Windows / macOS:** [Docker Desktop](https://docs.docker.com/desktop/) — enable **WSL 2** on Windows and, under Docker Desktop → **Settings → Resources → WSL integration**, turn on your Linux distro if you use WSL.
+- **Linux:** Docker Engine + Compose plugin.
+
+---
+
+## 3. Run the app
 
 ```bash
-uvicorn app.main:app --reload
+git clone <repository-url>
+cd rag-qa
+docker compose up --build
 ```
 
-5. Run frontend
+Wait until the logs show the API and web containers running. Then open:
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+**[http://localhost:8080](http://localhost:8080)** — that’s the full UI.
 
-Open `http://localhost:5173`.
+- API docs (Swagger): [http://localhost:8000/docs](http://localhost:8000/docs)
 
-## Defaults
+Stop with `Ctrl+C`. Start again anytime with `docker compose up` (omit `--build` if nothing changed).
 
-- Top K default: `4`
-- Word chunking default: enabled in UI
-- LLM default preference in UI: `mistral` (if available)
-- Embedding default preference in UI: `nomic-embed-text` (if available)
+---
 
-## API
+## Tips
 
-All ingest/query/delete operations are session-scoped with `X-Session-ID`.
+| Topic | Notes |
+|--------|--------|
+| **Where files go** | Uploaded documents are stored under `./data` next to the repo. Search indexes live in Docker volume **`vector_store`** (your vectors persist across restarts). |
+| **Large PDFs** | Uploads are allowed up to **100MB** through the UI proxy. |
+| **Logs** | `docker compose logs -f api` — see request timing, ingest, and RAG steps. Set `LOG_LEVEL=DEBUG` in a `.env` file (copy from `.env.example`) for more detail. |
+| **Models live in Ollama** | The stack talks to Ollama on your host (`host.docker.internal`). Keep Ollama running while you use the app. |
 
-- `GET /health`
-- `GET /models` -> locally available Ollama model names (normalized, no tag suffix)
-- `POST /ingest/file`
-- `POST /ingest/files`
-- `POST /query`
-- `DELETE /session`
-- `DELETE /document?name=<filename>`
-- `GET /document/preview?name=<filename>`
-- `GET /document/file?name=<filename>&session_id=<id>` (or header)
+Optional config: copy `.env.example` to `.env` if you want to tweak defaults (e.g. `LOG_LEVEL`). Compose already points the API container at your host Ollama—you don’t need to set `OLLAMA_BASE_URL` yourself for Docker.
 
-### Ingest options
+---
 
-`/ingest/file` and `/ingest/files` accept form fields:
+## If something fails
 
-- `chunk_size`
-- `chunk_overlap`
-- `chunk_by_words` (`true`/`false`)
-- `embedding_model`
+- **`docker: command not found` (in WSL)** — Install Docker Desktop on Windows and enable WSL integration for your distro, or install Docker inside WSL.
+- **Queries / ingest errors about models** — Run `ollama pull <model-name>` for the model shown in the error.
+- **Can’t reach Ollama from containers** — Confirm Ollama is running on the host (`ollama list`). On Linux without Docker Desktop, you may need extra networking setup for `host.docker.internal`; using Docker Desktop on Windows/macOS usually works out of the box.
 
-### Query options
-
-`/query` accepts JSON:
-
-```json
-{
-  "question": "What are the key findings?",
-  "top_k": 4,
-  "model": "mistral",
-  "embedding_model": "nomic-embed-text"
-}
-```
-
-## Model selection notes
-
-- LLM model is used for answer generation.
-- Embedding model is used for both ingest embeddings and query embeddings.
-- Best results require querying with the same embedding model used when ingesting that document set.
-- If a selected model is missing, UI surfaces a helpful message with `ollama pull <model>`.
+---
 
 ## Supported file types
 
-- PDF
-- TXT
-- MD
-- HTML
-- CSV
-- DOCX
+PDF, TXT, MD, HTML, CSV, DOCX.
 
-## Project layout
+---
 
-- `app/main.py` - API routes
-- `app/config.py` - env-driven config
-- `app/embedding.py` - embedding calls
-- `app/store.py` - Chroma collections/search/delete
-- `app/query.py` - RAG pipeline
-- `app/ingest.py` - load/chunk/store
-- `app/loaders.py` - file readers
-- `frontend/` - React app UI
-- `tests/` - pytest suite
+## API
 
-## Tests
+Interactive docs: **http://localhost:8000/docs** once the stack is up.
 
-From repo root:
+---
 
-```bash
-pytest
-```
+## Contributing / developing from source
+
+If you’re modifying Python or React code, clone the repo and run the backend and frontend locally (Python 3.11+, `pip install -r requirements.txt`, `uvicorn app.main:app --reload`, and in `frontend/` run `npm install` && `npm run dev`). Tests: `pytest` from the repo root (some tests expect Ollama). CI details live under `.github/workflows/`.
