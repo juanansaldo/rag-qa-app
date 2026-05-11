@@ -2,7 +2,7 @@
 
 Ask questions over **your own PDFs and notes** using local models—nothing leaves your machine.
 
-You only need **[Docker](https://docs.docker.com/get-docker/)** (with Compose) and **[Ollama](https://ollama.com/)** running on your computer. No Python, Node, or conda required.
+You only need **[Docker](https://docs.docker.com/get-docker/)** (with Compose) and **[Ollama](https://ollama.com/)** running on your computer. You do **not** need a separate Python or Node install for day-to-day use.
 
 ---
 
@@ -24,6 +24,8 @@ You can add more later (`ollama pull llama3.2`, etc.) and pick them in the app.
 - **Windows / macOS:** [Docker Desktop](https://docs.docker.com/desktop/) — enable **WSL 2** on Windows and, under Docker Desktop → **Settings → Resources → WSL integration**, turn on your Linux distro if you use WSL.
 - **Linux:** Docker Engine + Compose plugin.
 
+Docker must be **running** before `docker compose` works (`docker info` should succeed).
+
 ---
 
 ## 3. Run the app
@@ -34,34 +36,109 @@ cd rag-qa
 docker compose up --build
 ```
 
-Wait until the logs show the API and web containers running. Then open:
+Wait until the API and web containers are running. Then open:
 
-**[http://localhost:8080](http://localhost:8080)** — that’s the full UI.
+**[http://localhost:8080](http://localhost:8080)** — full UI (nginx proxies **`/api`** to the backend).
 
-- API docs (Swagger): [http://localhost:8000/docs](http://localhost:8000/docs)
+| URL | Purpose |
+|-----|---------|
+| **http://localhost:8080** | Web UI |
+| **http://localhost:8080/api/docs** | OpenAPI (Swagger) via nginx |
+| **http://localhost:8000/docs** | OpenAPI against the API container directly |
 
-Stop with `Ctrl+C`. Start again anytime with `docker compose up` (omit `--build` if nothing changed).
-
----
-
-## Tips
-
-| Topic | Notes |
-|--------|--------|
-| **Where files go** | Uploaded documents are stored under `./data` next to the repo. Search indexes live in Docker volume **`vector_store`** (your vectors persist across restarts). |
-| **Large PDFs** | Uploads are allowed up to **100MB** through the UI proxy. |
-| **Logs** | `docker compose logs -f api` — see request timing, ingest, and RAG steps. Set `LOG_LEVEL=DEBUG` in a `.env` file (copy from `.env.example`) for more detail. |
-| **Models live in Ollama** | The stack talks to Ollama on your host (`host.docker.internal`). Keep Ollama running while you use the app. |
-
-Optional config: copy `.env.example` to `.env` if you want to tweak defaults (e.g. `LOG_LEVEL`). Compose already points the API container at your host Ollama—you don’t need to set `OLLAMA_BASE_URL` yourself for Docker.
+Stop with `Ctrl+C`. Start again with `docker compose up` (omit `--build` if nothing changed).
 
 ---
 
-## If something fails
+## Health checks
 
-- **`docker: command not found` (in WSL)** — Install Docker Desktop on Windows and enable WSL integration for your distro, or install Docker inside WSL.
-- **Queries / ingest errors about models** — Run `ollama pull <model-name>` for the model shown in the error.
-- **Can’t reach Ollama from containers** — Confirm Ollama is running on the host (`ollama list`). On Linux without Docker Desktop, you may need extra networking setup for `host.docker.internal`; using Docker Desktop on Windows/macOS usually works out of the box.
+Use these for orchestration or manual troubleshooting.
+
+| Endpoint | Meaning |
+|----------|---------|
+| **`GET /health`** | **Liveness** — process is up (cheap; fine for frequent pings). |
+| **`GET /health/ready`** | **Readiness** — vector store directory is writable **and** Ollama’s API responds. Returns **503** if not ready (e.g. Ollama stopped). |
+
+Behind the UI proxy:
+
+- `http://localhost:8080/api/health`
+- `http://localhost:8080/api/health/ready`
+
+Prefer **`/health`** for high-frequency probes and **`/health/ready`** less often (the readiness check talks to Ollama).
+
+---
+
+## Configuration
+
+Copy **`.env.example`** to **`.env`** and adjust as needed. Important variables:
+
+| Variable | Role |
+|----------|------|
+| `OLLAMA_BASE_URL` | Ollama HTTP API (Compose defaults to `http://host.docker.internal:11434` inside the API container). |
+| `VECTOR_STORE_PATH` | Chroma persistence path (Compose uses `/app/vector_store` in the container). |
+| `LOG_LEVEL` | `DEBUG`, `INFO`, etc. |
+| `CORS_ORIGINS` | Comma-separated browser origins allowed by the API (defaults match local Vite + Docker UI). |
+
+Uploaded files are stored under **`./data`** on the host. Search indexes persist in the **`vector_store`** Docker volume across restarts.
+
+Large uploads through the UI are allowed up to **100 MB** (see `frontend/nginx.conf`).
+
+---
+
+## API behavior (errors)
+
+Endpoints align with common FastAPI patterns:
+
+| Situation | Typical response |
+|-----------|-------------------|
+| Missing **`X-Session-ID`** on routes that require it | **400** with `detail` (JSON). |
+| Invalid ingest input (e.g. no file, wrong extension, empty batch) | **400** with `detail`. |
+| Query / ingest failures after validation | Often **200** with a JSON body containing **`error`** (or empty answer / sources), so the UI can show a message without treating HTTP as fatal. |
+
+Interactive docs list full schemas: **`/docs`**.
+
+---
+
+## Tests
+
+Python dependencies are **pinned** in **`requirements.txt`** for reproducible installs.
+
+**Integration** tests (live Ollama embeddings) are marked **`@pytest.mark.integration`** and are **skipped in CI** by default.
+
+```bash
+# Same environment as CI — unit + API tests only
+pytest -q -m "not integration"
+
+# Live embeddings / Chroma (requires Ollama reachable at OLLAMA_BASE_URL)
+pytest -q -m integration
+```
+
+### Run tests **only with Docker** (no host Python env)
+
+From the repo root (Docker Desktop running):
+
+```bash
+docker compose --profile test build test
+docker compose --profile test run --rm test
+```
+
+Optional one-liner after the image exists:
+
+```bash
+docker compose --profile test run --rm test pytest -q -m integration
+```
+
+---
+
+## CI (GitHub Actions)
+
+Workflow **`.github/workflows/ci.yml`** runs on **`push`** to **`main`**, **pull requests**, and **`workflow_dispatch`** (manual run):
+
+1. **`test`** — `pip install -r requirements.txt`, then **`pytest -m "not integration"`**.
+2. **`docker-test`** — builds the **`test`** Compose service and runs pytest **inside** the container (matches local Docker workflow).
+3. **`docker-build`** — builds **API + web** images (`docker compose build`).
+
+**Dependabot** is configured for **pip**, **npm** (`frontend/`), and **GitHub Actions** (see `.github/dependabot.yml`).
 
 ---
 
@@ -71,12 +148,21 @@ PDF, TXT, MD, HTML, CSV, DOCX.
 
 ---
 
-## API
+## Troubleshooting
 
-Interactive docs: **http://localhost:8000/docs** once the stack is up.
+- **`docker: command not found` (in WSL)** — Install Docker Desktop on Windows and enable WSL integration for your distro, or install Docker Engine inside WSL.
+- **Cannot connect to Docker pipe / engine** — Start Docker Desktop and wait until it is fully running.
+- **Queries / ingest errors about models** — Run `ollama pull <model-name>` for the model shown in the error.
+- **Containers cannot reach Ollama** — Confirm Ollama is running (`ollama list`). Compose maps **`OLLAMA_BASE_URL`** to the host; on Linux without Docker Desktop you may need extra networking instead of `host.docker.internal`.
+- **Readiness always 503** — Check Ollama is up and **`OLLAMA_BASE_URL`** from inside the API container reaches your host.
 
 ---
 
 ## Contributing / developing from source
 
-If you’re modifying Python or React code, clone the repo and run the backend and frontend locally (Python 3.11+, `pip install -r requirements.txt`, `uvicorn app.main:app --reload`, and in `frontend/` run `npm install` && `npm run dev`). Tests: `pytest` from the repo root (some tests expect Ollama). CI details live under `.github/workflows/`.
+For UI or Python changes you can run processes locally:
+
+- **Backend:** Python **3.11+**, `pip install -r requirements.txt`, `uvicorn app.main:app --reload`.
+- **Frontend:** in **`frontend/`**, `npm install` and `npm run dev`.
+
+The UI expects the API at **`VITE_API_URL`** (e.g. proxy to `http://127.0.0.1:8000` or `/api` depending on setup).

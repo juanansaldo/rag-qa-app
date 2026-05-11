@@ -19,8 +19,18 @@ export async function ingestFiles(
     headers: headers(sessionId),
     body: form,
   })
-  if (!res.ok) throw new Error(`Ingest failed: ${res.status}`)
-  return res.json()
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const detail = data?.detail
+    const msg =
+      typeof detail === 'string'
+        ? detail
+        : Array.isArray(detail)
+          ? detail.map((e) => e.msg || String(e)).join('; ')
+          : `Ingest failed: ${res.status}`
+    throw new Error(msg)
+  }
+  return data
 }
 
 export async function query(sessionId, { question, topK, model, embeddingModel }) {

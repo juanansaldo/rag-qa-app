@@ -1,7 +1,13 @@
+import logging
+import time
+
 import chromadb
 
 from app.config import VECTOR_STORE_PATH, TOP_K, EMBEDDING_MODEL
 from app.embedding import embed
+from app.logging_setup import session_log_tag
+
+logger = logging.getLogger("rag.store")
 
 # Persist under project root; Chroma creates the directory
 _path = VECTOR_STORE_PATH
@@ -69,7 +75,17 @@ def add_batch(
 ):
     """Store multiple chunks: Metadatas can be a list of dicts (one per chunk) or None."""
     collection = _get_collection(embedding_model)
-    vectors = [embed(t, model=embedding_model) for t in texts]
+    t_embed = time.perf_counter()
+    vectors = [embed(t, model=embedding_model, log_timing=False) for t in texts]
+    embed_ms = (time.perf_counter() - t_embed) * 1000
+    model_norm = _normalize_embedding_model(embedding_model)
+    logger.debug(
+        "add_batch chunks=%d model=%s embed_total_ms=%.1f%s",
+        len(texts),
+        model_norm,
+        embed_ms,
+        session_log_tag(session_id),
+    )
     base_metas = metadatas or [{}] * len(texts)
     final_metas = []
     for m in base_metas:

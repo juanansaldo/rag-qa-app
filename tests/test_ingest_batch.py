@@ -15,7 +15,7 @@ def test_ingest_files_endpoint_multiple_files():
         ("files", ("a.txt", BytesIO(b"hello world"), "text/plain")),
         ("files", ("b.txt", BytesIO(b"second file"), "text/plain")),
     ]
-    with patch("app.main.ingest_file") as mock_ingest:
+    with patch("app.routers.ingest.ingest_file") as mock_ingest:
         mock_ingest.side_effect = [3, 2]
         resp = client.post(
             "/ingest/files",
@@ -36,13 +36,11 @@ def test_ingest_files_endpoint_multiple_files():
 
 
 def test_ingest_files_endpoint_empty_list():
-    """POST /ingest/files with no files returns error."""
+    """POST /ingest/files with no files returns 400."""
     resp = client.post(
         "/ingest/files",
         headers={"X-Session-ID": "sess-1"},
         files=[],
     )
-    if resp.status_code == 200:
-        data = resp.json()
-        assert data.get("ok") is False
-        assert "total_chunks" in data or "error" in data
+    assert resp.status_code == 400
+    assert "detail" in resp.json()

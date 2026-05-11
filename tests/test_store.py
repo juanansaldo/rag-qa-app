@@ -1,6 +1,9 @@
+import pytest
+
 from app.store import add, search
 
 
+@pytest.mark.integration
 def test_store_add_and_search():
     add("t1", "The capital of France is Paris")
     add("t2", "Python is a programming language")

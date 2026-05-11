@@ -1,9 +1,18 @@
 """Application logging: call configure_logging() once at process startup."""
 
+import hashlib
 import logging
 import sys
 
 from app.config import LOG_LEVEL
+
+
+def session_log_tag(session_id: str | None) -> str:
+    """Stable short token for logs (SHA-256 prefix); correlates requests without logging raw IDs."""
+    if not session_id:
+        return ""
+    h = hashlib.sha256(session_id.encode("utf-8")).hexdigest()[:8]
+    return f" sess={h}"
 
 
 def preview_text(text: str, max_len: int = 120) -> str:

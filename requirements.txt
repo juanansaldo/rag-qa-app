@@ -1,9 +1,11 @@
-python-multipart
-fastapi
-uvicorn[standard]
-python-dotenv
-python-docx
-chromadb
-ollama
-pytest
-pypdf
+# Pinned for reproducible installs; bump after `pip install -r requirements.txt` + `pytest`.
+python-multipart==0.0.28
+pydantic-settings==2.14.1
+fastapi==0.115.12
+uvicorn[standard]==0.34.3
+python-dotenv==1.0.1
+python-docx==1.1.2
+chromadb==1.5.9
+ollama==0.6.2
+pytest==9.0.3
+pypdf==6.11.0

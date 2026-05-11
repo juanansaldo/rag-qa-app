@@ -14,7 +14,7 @@ def test_document_preview_returns_json(tmp_path, monkeypatch):
     data_dir.mkdir()
     (data_dir / "note.txt").write_text("hello preview world", encoding="utf-8")
 
-    with patch("app.main.session_has_source", return_value=True):
+    with patch("app.routers.documents.session_has_source", return_value=True):
         r = client.get(
             "/document/preview",
             params={"name": "note.txt"},
@@ -28,7 +28,7 @@ def test_document_preview_returns_json(tmp_path, monkeypatch):
 
 def test_document_file_requires_session_source(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    with patch("app.main.session_has_source", return_value=False):
+    with patch("app.routers.documents.session_has_source", return_value=False):
         r = client.get(
             "/document/file",
             params={"name": "missing.txt", "session_id": "s1"},
@@ -37,7 +37,7 @@ def test_document_file_requires_session_source(tmp_path, monkeypatch):
 
 
 def test_delete_document_removes_chunks_for_session():
-    with patch("app.main.delete_session_source", return_value=5) as mock_delete:
+    with patch("app.routers.documents.delete_session_source", return_value=5) as mock_delete:
         r = client.delete(
             "/document",
             params={"name": "note.txt"},
