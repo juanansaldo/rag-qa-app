@@ -816,6 +816,17 @@ body {
   color: var(--accent);
 }
 
+.query-queue-hint {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.chat-queue-badge {
+  color: var(--text-muted);
+  font-weight: 500;
+  font-style: normal;
+}
+
 /* Options in sidebar */
 .options-sidebar-wrap {
   display: flex;

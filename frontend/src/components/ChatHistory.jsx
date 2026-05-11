@@ -1,6 +1,7 @@
 export default function ChatHistory({
   turns,
   pendingQuestion = '',
+  queuedCount = 0,
   emptyMessage = 'No messages yet. Upload documents and ask a question.',
 }) {
   const hasPending = Boolean(pendingQuestion)
@@ -31,7 +32,15 @@ export default function ChatHistory({
       {hasPending ? (
         <div className="chat-turn chat-turn-pending" aria-live="polite">
           <p className="chat-question">Q: {pendingQuestion}</p>
-          <div className="chat-answer chat-answer-pending">Getting answer...</div>
+          <div className="chat-answer chat-answer-pending">
+            Getting answer...
+            {queuedCount > 0 ? (
+              <span className="chat-queue-badge">
+                {' '}
+                (+{queuedCount} queued)
+              </span>
+            ) : null}
+          </div>
         </div>
       ) : null}
     </div>

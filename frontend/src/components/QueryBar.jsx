@@ -2,6 +2,7 @@ import { useRef } from 'react'
 
 export default function QueryBar({
   statusMessage,
+  queuedCount = 0,
   question,
   onQuestionChange,
   onAsk,
@@ -78,6 +79,12 @@ export default function QueryBar({
           className={`query-status ${statusMessage === 'Ingesting in background...' ? 'loading' : ''}`}
         >
           {statusMessage || '\u00A0'}
+          {queuedCount > 0 ? (
+            <span className="query-queue-hint" aria-live="polite">
+              {' '}
+              · {queuedCount} question{queuedCount === 1 ? '' : 's'} queued
+            </span>
+          ) : null}
         </div>
       </div>
     </div>

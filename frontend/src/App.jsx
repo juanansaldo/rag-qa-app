@@ -44,13 +44,14 @@ export default function App() {
     setAskError: ws.setAskError,
   })
 
-  const { handleAsk } = useChatAsk({
+  const { handleAsk, queuedCount } = useChatAsk({
     question: ws.question,
     setQuestion: ws.setQuestion,
     setPendingQuestion: ws.setPendingQuestion,
     setAskError: ws.setAskError,
     setStatusMessage: ws.setStatusMessage,
     activeSessionId: ws.activeSessionId,
+    activeSessionIdRef: ws.activeSessionIdRef,
     ingestPromiseRef: ws.ingestPromiseRef,
     summaryBySession: ws.summaryBySession,
     setDataBySession: ws.setDataBySession,
@@ -129,13 +130,18 @@ export default function App() {
             </div>
           )}
           <div className="app-conversation">
-            <ChatHistory turns={ws.chatHistory} pendingQuestion={ws.pendingQuestion} />
+            <ChatHistory
+              turns={ws.chatHistory}
+              pendingQuestion={ws.pendingQuestion}
+              queuedCount={queuedCount}
+            />
           </div>
         </main>
         <div className="query-bar-wrap">
           <QueryBar
             optionsSlot={optionsSlot}
             statusMessage={displayStatus}
+            queuedCount={queuedCount}
             question={ws.question}
             onQuestionChange={ws.setQuestion}
             onAsk={handleAsk}

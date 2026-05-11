@@ -48,6 +48,8 @@ Wait until the API and web containers are running. Then open:
 
 Stop with `Ctrl+C`. Start again with `docker compose up` (omit `--build` if nothing changed).
 
+**Question queue:** While a reply is loading, you can submit more questions—they run **sequentially** (FIFO). The status line shows how many are waiting. **Switching chats** clears any queued questions for the pipeline tied to the previous chat.
+
 ---
 
 ## Health checks
